@@ -31,10 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
 
             const isDashboardRoute = pathname?.startsWith('/dashboard')
+            const isAdminRoute = pathname?.startsWith('/admin')
             const isAuthRoute = pathname?.startsWith('/login') || pathname?.startsWith('/register')
 
             // Protección de rutas del lado del cliente
-            if (!currentUser && isDashboardRoute) {
+            if (!currentUser && (isDashboardRoute || isAdminRoute)) {
                 router.push('/login')
             } else if (currentUser && isAuthRoute) {
                 router.push('/dashboard/settings')

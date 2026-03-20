@@ -102,16 +102,16 @@ export default function CategoriesPage() {
     }
 
     return (
-        <div className="max-w-4xl space-y-8">
+        <div className="max-w-4xl space-y-6 md:space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">Categorías</h1>
-                <p className="text-gray-500 mt-2">Agrupa tus productos (ej: Entradas, Bebidas, Postres) para ordenar tu menú.</p>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Categorías</h1>
+                <p className="text-gray-500 mt-1 md:mt-2 text-sm md:text-base">Agrupa tus productos (ej: Entradas, Bebidas, Postres) para ordenar tu menú.</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
 
                 {/* Formulario para agregar ràpido */}
-                <form onSubmit={handleAddCategory} className="flex gap-4 mb-8">
+                <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 md:mb-8">
                     <input
                         type="text"
                         value={newCategoryName}

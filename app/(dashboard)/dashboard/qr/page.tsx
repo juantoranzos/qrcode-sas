@@ -74,16 +74,16 @@ export default function QRCodePage() {
     }
 
     return (
-        <div className="max-w-4xl space-y-8">
+        <div className="max-w-4xl space-y-6 md:space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">Tu Código QR</h1>
-                <p className="text-gray-500 mt-2">Imprime este código y colócalo en tus mesas para que los clientes vean el menú.</p>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Tu Código QR</h1>
+                <p className="text-gray-500 mt-1 md:mt-2 text-sm md:text-base">Imprime este código y colócalo en tus mesas para que los clientes vean el menú.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
 
                 {/* Panel del QR */}
-                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
                     <div className="bg-white border-8 border-white shadow-sm rounded-xl p-4 mb-8">
                         <QRCodeSVG
                             value={menuUrl}

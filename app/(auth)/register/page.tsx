@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/lib/firebase/config'
+import { validateInviteCode, consumeInviteCode } from '@/app/lib/firebase/services/invitations'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 
@@ -10,7 +11,6 @@ export default function RegisterPage() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
-    // En Next.js App Router, para formularios cliente puros usamos onSubmit en vez del action
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
         setLoading(true)
@@ -19,9 +19,18 @@ export default function RegisterPage() {
         const formData = new FormData(e.currentTarget)
         const email = formData.get('email') as string
         const password = formData.get('password') as string
+        const inviteCode = formData.get('inviteCode') as string
 
         try {
-            await createUserWithEmailAndPassword(auth, email, password)
+            const isValid = await validateInviteCode(inviteCode)
+            if (!isValid) {
+                setError('El código de invitación no es válido o ya fue usado.')
+                setLoading(false)
+                return
+            }
+
+            const { user } = await createUserWithEmailAndPassword(auth, email, password)
+            await consumeInviteCode(inviteCode, user.uid, email)
             // La redirección al dashboard la hace automáticamente el AuthContext
         } catch (err: any) {
             setError(
@@ -47,6 +56,21 @@ export default function RegisterPage() {
                             {error}
                         </div>
                     )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="inviteCode">
+                            Código de Invitación
+                        </label>
+                        <input
+                            id="inviteCode"
+                            name="inviteCode"
+                            type="text"
+                            required
+                            placeholder="XXXX-XXXX"
+                            autoComplete="off"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-700 uppercase tracking-widest"
+                        />
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">

@@ -141,13 +141,13 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="max-w-2xl space-y-8">
+        <div className="max-w-2xl space-y-6 md:space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">Mi Local</h1>
-                <p className="text-gray-500 mt-2">Configura los datos básicos de tu negocio y tu URL única.</p>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Mi Local</h1>
+                <p className="text-gray-500 mt-1 md:mt-2 text-sm md:text-base">Configura los datos básicos de tu negocio y tu URL única.</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
                     {successMessage && (
@@ -258,13 +258,14 @@ export default function SettingsPage() {
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Horarios de Atención</h3>
                         <p className="text-sm text-gray-500 mb-4">Si está marcado como cerrado, tu menú virtual no permitirá hacer pedidos y mostrará un cartel de cerrado.</p>
 
-                        <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <div className="space-y-3 bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-200">
                             {(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const).map((day, idx) => {
-                                const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+                                const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                                const dayNamesFull = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
                                 const isOpen = watch(`schedule.${day}.isOpen`);
                                 return (
-                                    <div key={day} className="flex items-center justify-between pb-3 border-b border-gray-200 last:border-0 last:pb-0">
-                                        <div className="flex items-center gap-3 w-1/3">
+                                    <div key={day} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-gray-200 last:border-0 last:pb-0">
+                                        <div className="flex items-center gap-3 sm:w-1/3">
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -272,20 +273,21 @@ export default function SettingsPage() {
                                                 id={`day-${day}`}
                                             />
                                             <label htmlFor={`day-${day}`} className={`text-sm font-medium cursor-pointer ${isOpen ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {dayNames[idx]}
+                                                <span className="sm:hidden">{dayNames[idx]}</span>
+                                                <span className="hidden sm:inline">{dayNamesFull[idx]}</span>
                                             </label>
                                         </div>
 
-                                        <div className={`flex items-center gap-2 flex-1 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                        <div className={`flex items-center gap-2 pl-7 sm:pl-0 sm:flex-1 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                                             <input
                                                 type="time"
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500 w-[110px]"
                                                 {...register(`schedule.${day}.openTime`)}
                                             />
                                             <span className="text-gray-500 text-sm">a</span>
                                             <input
                                                 type="time"
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500 w-[110px]"
                                                 {...register(`schedule.${day}.closeTime`)}
                                             />
                                         </div>
