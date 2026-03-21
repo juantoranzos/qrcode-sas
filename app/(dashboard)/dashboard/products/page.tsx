@@ -4,11 +4,29 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { getBusinessProfile } from '@/app/lib/firebase/services/business'
 import { Category, getCategories } from '@/app/lib/firebase/services/categories'
-import { Product, getProducts, addProduct, deleteProduct, updateProduct } from '@/app/lib/firebase/services/products'
+import { Product, getProducts, addProduct, deleteProduct, updateProduct, reorderProducts } from '@/app/lib/firebase/services/products'
 import { uploadImageToCloudinary } from '@/app/lib/cloudinary/upload'
 import { Plus, Trash2, Image as ImageIcon, Loader2, Pencil, X, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
-// ── Inline Edit Card ────────────────────────────────────────────────────────
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core'
+import {
+    arrayMove,
+    SortableContext,
+    rectSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+// ── Inline Edit Card ──────────────────────────────────────────────────────
 interface EditCardProps {
     product: Product
     categories: Category[]
@@ -44,7 +62,6 @@ function EditCard({ product, categories, onSave, onCancel }: EditCardProps) {
             onSubmit={handleSubmit}
             className="border-2 border-red-400 rounded-xl overflow-hidden bg-white flex flex-col shadow-md"
         >
-            {/* Image area */}
             <div className="aspect-4/3 bg-gray-100 relative overflow-hidden flex items-center justify-center group/img">
                 {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="object-cover w-full h-full" />
@@ -76,7 +93,6 @@ function EditCard({ product, categories, onSave, onCancel }: EditCardProps) {
                 />
             </div>
 
-            {/* Fields */}
             <div className="p-3 flex flex-col gap-2 flex-1">
                 <input
                     type="text"
@@ -142,7 +158,141 @@ function EditCard({ product, categories, onSave, onCancel }: EditCardProps) {
     )
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+// ── Sortable product card ─────────────────────────────────────────────────
+interface SortableCardProps {
+    product: Product
+    categories: Category[]
+    editingId: string | null
+    onEdit: (id: string) => void
+    onCancelEdit: () => void
+    onSaveEdit: (id: string, data: Partial<Product>, file: File | null) => Promise<void>
+    onDelete: (id: string) => void
+    onToggle: (id: string, current: boolean) => void
+}
+
+function SortableProductCard({
+    product, categories, editingId,
+    onEdit, onCancelEdit, onSaveEdit, onDelete, onToggle,
+}: SortableCardProps) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id: product.id })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+    }
+
+    const groupName = categories.find(c => c.id === product.categoryId)?.name || 'Sin categoría'
+
+    if (editingId === product.id) {
+        return (
+            <div ref={setNodeRef} style={style}>
+                <EditCard
+                    product={product}
+                    categories={categories}
+                    onSave={onSaveEdit}
+                    onCancel={onCancelEdit}
+                />
+            </div>
+        )
+    }
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`border rounded-xl overflow-hidden bg-white flex flex-col relative group transition-shadow ${
+                isDragging ? 'shadow-2xl border-red-300 opacity-90' : 'border-gray-200 hover:shadow-md'
+            }`}
+        >
+            {/* Drag handle — top-left corner */}
+            <button
+                {...attributes}
+                {...listeners}
+                className="absolute top-2 left-2 z-10 p-1 bg-white/80 text-gray-500 hover:text-gray-700 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing touch-none"
+                title="Arrastrar para reordenar"
+            >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                    <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                    <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                </svg>
+            </button>
+
+            {/* Card Image */}
+            <div className="aspect-4/3 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" />
+                ) : (
+                    <ImageIcon className="w-10 h-10 text-gray-300" />
+                )}
+                {!product.isAvailable && (
+                    <div className="absolute inset-0 bg-white/70 flex items-center justify-center backdrop-blur-[1px]">
+                        <span className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide">Agotado</span>
+                    </div>
+                )}
+                <div className="absolute top-2 left-8 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-md font-medium">
+                    {groupName}
+                </div>
+                <button
+                    onClick={() => onEdit(product.id)}
+                    className="absolute top-2 right-2 p-1.5 bg-white/90 text-gray-600 hover:text-red-600 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Editar producto"
+                >
+                    <Pencil className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Card Content */}
+            <div className="p-4 flex flex-col flex-1">
+                <div className="flex justify-between items-start mb-2">
+                    <h3 className={`font-bold text-gray-900 line-clamp-1 pr-2 ${!product.isAvailable && 'text-gray-400'}`}>
+                        {product.name}
+                    </h3>
+                    <span className={`font-bold shrink-0 ${product.isAvailable ? 'text-red-600' : 'text-gray-400'}`}>
+                        ${product.price}
+                    </span>
+                </div>
+                <p className="text-sm text-gray-500 line-clamp-2 mb-4 flex-1">
+                    {product.description || <span className="italic text-gray-400">Sin descripción</span>}
+                </p>
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <label className="inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={product.isAvailable}
+                            onChange={() => onToggle(product.id, product.isAvailable)}
+                        />
+                        <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                        <span className={`ms-2 text-xs font-medium ${product.isAvailable ? 'text-gray-700' : 'text-gray-400'}`}>
+                            {product.isAvailable ? 'Disponible' : 'Agotado'}
+                        </span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => onEdit(product.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Editar producto"
+                        >
+                            <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => onDelete(product.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Eliminar producto"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────
 export default function ProductsPage() {
     const { user } = useAuth()
     const [businessId, setBusinessId] = useState<string | null>(null)
@@ -152,13 +302,19 @@ export default function ProductsPage() {
     const [saving, setSaving] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
 
-    // Add form states
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [price, setPrice] = useState('')
     const [categoryId, setCategoryId] = useState('')
     const [imageFile, setImageFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: { delay: 200, tolerance: 5 },
+        })
+    )
 
     useEffect(() => {
         async function loadData() {
@@ -173,9 +329,7 @@ export default function ProductsPage() {
                     ])
                     setCategories(loadedCategories)
                     setProducts(loadedProducts)
-                    if (loadedCategories.length > 0) {
-                        setCategoryId(loadedCategories[0].id)
-                    }
+                    if (loadedCategories.length > 0) setCategoryId(loadedCategories[0].id)
                 }
             } catch (error) {
                 console.error("Error loading data:", error)
@@ -193,9 +347,7 @@ export default function ProductsPage() {
         setSaving(true)
         try {
             let imageUrl = ''
-            if (imageFile) {
-                imageUrl = await uploadImageToCloudinary(imageFile)
-            }
+            if (imageFile) imageUrl = await uploadImageToCloudinary(imageFile)
 
             const newProduct = await addProduct({
                 businessId,
@@ -204,18 +356,17 @@ export default function ProductsPage() {
                 description: description.trim(),
                 price: parseFloat(price),
                 imageUrl,
-                isAvailable: true
+                isAvailable: true,
+                order: products.length,
             })
 
             setProducts(prev => [...prev, newProduct])
-            setName('')
-            setDescription('')
-            setPrice('')
-            setImageFile(null)
+            setName(''); setDescription(''); setPrice(''); setImageFile(null)
             if (fileInputRef.current) fileInputRef.current.value = ''
+            toast.success(`"${newProduct.name}" agregado al menú`)
         } catch (error) {
             console.error("Error agregando producto:", error)
-            alert("Hubo un error al guardar el producto o subir la imagen.")
+            toast.error("No se pudo guardar el producto")
         } finally {
             setSaving(false)
         }
@@ -224,37 +375,67 @@ export default function ProductsPage() {
     const handleSaveEdit = async (id: string, data: Partial<Product>, newImageFile: File | null) => {
         try {
             let imageUrl = products.find(p => p.id === id)?.imageUrl || ''
-            if (newImageFile) {
-                imageUrl = await uploadImageToCloudinary(newImageFile)
-            }
+            if (newImageFile) imageUrl = await uploadImageToCloudinary(newImageFile)
             const updatedData = { ...data, imageUrl }
             await updateProduct(id, updatedData)
             setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedData } : p))
             setEditingId(null)
+            toast.success("Producto actualizado")
         } catch (error) {
             console.error("Error editando producto:", error)
-            alert("Hubo un error al guardar los cambios.")
+            toast.error("No se pudieron guardar los cambios")
         }
     }
 
     const handleDelete = async (id: string) => {
-        if (!confirm('¿Estás seguro de eliminar este plato?')) return
-        const prev = [...products]
-        setProducts(products.filter(p => p.id !== id))
-        try {
-            await deleteProduct(id)
-        } catch (error) {
-            console.error("Error borrando:", error)
-            setProducts(prev)
-        }
+        const product = products.find(p => p.id === id)
+        toast(`¿Eliminar "${product?.name}"?`, {
+            action: {
+                label: 'Eliminar',
+                onClick: async () => {
+                    const prev = [...products]
+                    setProducts(products.filter(p => p.id !== id))
+                    try {
+                        await deleteProduct(id)
+                        toast.success(`"${product?.name}" eliminado`)
+                    } catch (error) {
+                        console.error("Error borrando:", error)
+                        setProducts(prev)
+                        toast.error("No se pudo eliminar el producto")
+                    }
+                },
+            },
+            cancel: { label: 'Cancelar', onClick: () => {} },
+        })
     }
 
     const toggleAvailability = async (id: string, currentStatus: boolean) => {
         setProducts(prev => prev.map(p => p.id === id ? { ...p, isAvailable: !currentStatus } : p))
         try {
             await updateProduct(id, { isAvailable: !currentStatus })
+            const product = products.find(p => p.id === id)
+            toast.success(`"${product?.name}" marcado como ${!currentStatus ? 'disponible' : 'agotado'}`)
         } catch (error) {
             console.error("Error actualizando", error)
+            setProducts(prev => prev.map(p => p.id === id ? { ...p, isAvailable: currentStatus } : p))
+        }
+    }
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const oldIndex = products.findIndex(p => p.id === active.id)
+        const newIndex = products.findIndex(p => p.id === over.id)
+        const reordered = arrayMove(products, oldIndex, newIndex)
+
+        setProducts(reordered)
+        try {
+            await reorderProducts(reordered.map((p, i) => ({ id: p.id, order: i })))
+        } catch (error) {
+            console.error("Error reordenando:", error)
+            toast.error("No se pudo guardar el nuevo orden")
+            setProducts(products)
         }
     }
 
@@ -284,13 +465,14 @@ export default function ProductsPage() {
         <div className="max-w-5xl space-y-6 md:space-y-8">
             <div>
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Platos y Productos</h1>
-                <p className="text-gray-500 mt-1 md:mt-2 text-sm md:text-base">Agrega los platos de tu menú, sube fotos apetitosas y define los precios.</p>
+                <p className="text-gray-500 mt-1 md:mt-2 text-sm md:text-base">
+                    Agrega los platos de tu menú. Arrastrá las cards para cambiar el orden en que aparecen.
+                </p>
             </div>
 
             {/* Add form */}
             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Agregar Nuevo Plato</h2>
-
                 <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <div>
@@ -304,7 +486,6 @@ export default function ProductsPage() {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-700"
                             />
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
@@ -332,7 +513,6 @@ export default function ProductsPage() {
                                 </select>
                             </div>
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Descripción corta (opcional)</label>
                             <textarea
@@ -347,7 +527,7 @@ export default function ProductsPage() {
 
                     <div className="space-y-4 flex flex-col">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Foto del producto (opcional)</label>
-                        <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-4 md:p-6 bg-gray-50 hover:bg-gray-100 transition-colors relative">
+                        <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-4 md:p-6 bg-gray-50 hover:bg-gray-100 transition-colors">
                             {imageFile ? (
                                 <div className="text-center">
                                     <p className="text-sm text-gray-900 font-medium truncate max-w-xs">{imageFile.name}</p>
@@ -366,20 +546,17 @@ export default function ProductsPage() {
                                     <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
                                         <label
                                             htmlFor="file-upload"
-                                            className="relative cursor-pointer rounded-md bg-transparent font-semibold text-red-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-red-600 focus-within:ring-offset-2 hover:text-red-500"
+                                            className="relative cursor-pointer font-semibold text-red-600 hover:text-red-500"
                                         >
                                             <span>Seleccionar imagen</span>
                                             <input
                                                 id="file-upload"
-                                                name="file-upload"
                                                 type="file"
                                                 accept="image/*"
                                                 className="sr-only"
                                                 ref={fileInputRef}
                                                 onChange={(e) => {
-                                                    if (e.target.files && e.target.files[0]) {
-                                                        setImageFile(e.target.files[0])
-                                                    }
+                                                    if (e.target.files?.[0]) setImageFile(e.target.files[0])
                                                 }}
                                             />
                                         </label>
@@ -403,7 +580,7 @@ export default function ProductsPage() {
                 </form>
             </div>
 
-            {/* Products grid */}
+            {/* Products grid with DnD */}
             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 md:mb-6">Tus Platos ({products.length})</h2>
 
@@ -412,106 +589,32 @@ export default function ProductsPage() {
                         No tienes productos aún. Completa el formulario de arriba.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {products.map((product) => {
-                            const groupName = categories.find(c => c.id === product.categoryId)?.name || 'Sin categoría'
-
-                            if (editingId === product.id) {
-                                return (
-                                    <EditCard
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={products.map(p => p.id)}
+                            strategy={rectSortingStrategy}
+                        >
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                {products.map((product) => (
+                                    <SortableProductCard
                                         key={product.id}
                                         product={product}
                                         categories={categories}
-                                        onSave={handleSaveEdit}
-                                        onCancel={() => setEditingId(null)}
+                                        editingId={editingId}
+                                        onEdit={setEditingId}
+                                        onCancelEdit={() => setEditingId(null)}
+                                        onSaveEdit={handleSaveEdit}
+                                        onDelete={handleDelete}
+                                        onToggle={toggleAvailability}
                                     />
-                                )
-                            }
-
-                            return (
-                                <div key={product.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white flex flex-col relative group">
-
-                                    {/* Card Image */}
-                                    <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden flex items-center justify-center">
-                                        {product.imageUrl ? (
-                                            <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" />
-                                        ) : (
-                                            <ImageIcon className="w-10 h-10 text-gray-300" />
-                                        )}
-
-                                        {!product.isAvailable && (
-                                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center backdrop-blur-[1px]">
-                                                <span className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide">Agotado</span>
-                                            </div>
-                                        )}
-
-                                        {/* Category badge */}
-                                        <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-md font-medium">
-                                            {groupName}
-                                        </div>
-
-                                        {/* Edit button — appears on hover */}
-                                        <button
-                                            onClick={() => setEditingId(product.id)}
-                                            className="absolute top-2 right-2 p-1.5 bg-white/90 text-gray-600 hover:text-red-600 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="Editar producto"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                    </div>
-
-                                    {/* Card Content */}
-                                    <div className="p-4 flex flex-col flex-1">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className={`font-bold text-gray-900 line-clamp-1 pr-2 ${!product.isAvailable && 'text-gray-400'}`}>
-                                                {product.name}
-                                            </h3>
-                                            <span className={`font-bold shrink-0 ${product.isAvailable ? 'text-red-600' : 'text-gray-400'}`}>
-                                                ${product.price}
-                                            </span>
-                                        </div>
-
-                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4 flex-1">
-                                            {product.description || <span className="italic text-gray-400">Sin descripción</span>}
-                                        </p>
-
-                                        {/* Controls */}
-                                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                                            <label className="inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={product.isAvailable}
-                                                    onChange={() => toggleAvailability(product.id, product.isAvailable)}
-                                                />
-                                                <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                                                <span className={`ms-2 text-xs font-medium ${product.isAvailable ? 'text-gray-700' : 'text-gray-400'}`}>
-                                                    {product.isAvailable ? 'Disponible' : 'Agotado'}
-                                                </span>
-                                            </label>
-
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => setEditingId(product.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                                    title="Editar producto"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(product.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                                    title="Eliminar producto"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
                 )}
             </div>
         </div>

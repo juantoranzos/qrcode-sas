@@ -1,5 +1,5 @@
 import { db } from '../config';
-import { collection, doc, setDoc, getDocs, query, where, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, deleteDoc, updateDoc, writeBatch, serverTimestamp, orderBy } from 'firebase/firestore';
 
 export interface Product {
     id: string;
@@ -10,6 +10,7 @@ export interface Product {
     price: number;
     imageUrl: string;
     isAvailable: boolean;
+    order?: number;
     createdAt?: any;
 }
 
@@ -26,11 +27,27 @@ export async function addProduct(data: Omit<Product, 'id' | 'createdAt'>): Promi
     return { id: newDocRef.id, ...data } as Product;
 }
 
-// Obtener todos los productos de un negocio (esto sirve tanto para el Dashboard como para el Menú Público)
+// Obtener todos los productos de un negocio ordenados por 'order', con fallback cliente
 export async function getProducts(businessId: string): Promise<Product[]> {
-    const q = query(collection(db, 'products'), where('businessId', '==', businessId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    try {
+        const q = query(collection(db, 'products'), where('businessId', '==', businessId), orderBy('order', 'asc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    } catch {
+        const q = query(collection(db, 'products'), where('businessId', '==', businessId));
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        return data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+}
+
+// Guardar el nuevo orden de productos en batch
+export async function reorderProducts(products: { id: string; order: number }[]) {
+    const batch = writeBatch(db);
+    products.forEach(({ id, order }) => {
+        batch.update(doc(db, 'products', id), { order });
+    });
+    await batch.commit();
 }
 
 // Eliminar un producto

@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { getBusinessProfile, saveBusinessProfile, isSlugAvailable, BusinessProfile } from '@/app/lib/firebase/services/business'
-import { Store, Loader2, CheckCircle2 } from 'lucide-react'
+import { Store, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 // Esquema de validación usando Zod
 const formSchema = z.object({
@@ -33,7 +34,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [existingProfile, setExistingProfile] = useState<BusinessProfile | null>(null)
-    const [successMessage, setSuccessMessage] = useState('')
+    const [successMessage] = useState('')
     const [logoFile, setLogoFile] = useState<File | null>(null)
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
     const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -81,7 +82,6 @@ export default function SettingsPage() {
     const onSubmit = async (data: FormData) => {
         if (!user) return
         setSaving(true)
-        setSuccessMessage('')
 
         try {
             // 1. Verificar que la URL no esté ocupada por otro negocio
@@ -103,7 +103,7 @@ export default function SettingsPage() {
                     finalLogoUrl = await uploadImageToCloudinary(logoFile)
                 } catch (error) {
                     console.error("Error subiendo logo:", error)
-                    setError('root', { type: 'manual', message: 'Error al subir la imagen del logo' })
+                    toast.error('No se pudo subir la imagen del logo')
                     setSaving(false)
                     setUploadingLogo(false)
                     return
@@ -119,7 +119,7 @@ export default function SettingsPage() {
             }
             await saveBusinessProfile(user.uid, profileDataToSave as any, existingProfile?.id)
 
-            setSuccessMessage('¡Configuración guardada correctamente!')
+            toast.success('¡Configuración guardada correctamente!')
 
             // Actualizamos el estado local por si sigue editando
             if (!existingProfile) {
@@ -132,7 +132,6 @@ export default function SettingsPage() {
             console.error("Error guardando", error)
         } finally {
             setSaving(false)
-            setTimeout(() => setSuccessMessage(''), 3000)
         }
     }
 
@@ -149,13 +148,6 @@ export default function SettingsPage() {
 
             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
-                    {successMessage && (
-                        <div className="bg-green-50 text-green-700 p-4 rounded-lg flex items-center border border-green-100">
-                            <CheckCircle2 className="h-5 w-5 mr-2 text-green-600" />
-                            {successMessage}
-                        </div>
-                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="businessName">

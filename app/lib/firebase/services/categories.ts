@@ -1,5 +1,5 @@
 import { db } from '../config';
-import { collection, doc, setDoc, getDocs, query, where, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, deleteDoc, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 export interface Category {
     id: string;
@@ -47,6 +47,15 @@ export async function addCategory(businessId: string, name: string, currentTotal
 
     await setDoc(newDocRef, categoryData);
     return { id: newDocRef.id, ...categoryData };
+}
+
+// Guardar el nuevo orden de categorías en batch
+export async function reorderCategories(categories: { id: string; order: number }[]) {
+    const batch = writeBatch(db);
+    categories.forEach(({ id, order }) => {
+        batch.update(doc(db, 'categories', id), { order });
+    });
+    await batch.commit();
 }
 
 // Eliminar una categoría
