@@ -6,6 +6,7 @@ import { getBusinessProfile } from '@/app/lib/firebase/services/business'
 import { QRCodeSVG } from 'qrcode.react'
 import { Loader2, Download, ExternalLink, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 export default function QRCodePage() {
     const { user } = useAuth()
@@ -40,18 +41,17 @@ export default function QRCodePage() {
         if (!menuUrl) return
         navigator.clipboard.writeText(menuUrl)
         setCopied(true)
+        toast.success('Enlace copiado al portapapeles')
         setTimeout(() => setCopied(false), 2000)
     }
 
     const downloadQR = () => {
         if (!qrRef.current) return
 
-        // Obtener el SVG como string
         const svgData = new XMLSerializer().serializeToString(qrRef.current)
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
         const url = URL.createObjectURL(blob)
 
-        // Crear un elemento <a> temporal para forzar la descarga
         const link = document.createElement('a')
         link.href = url
         link.download = `qr-${businessSlug || 'menu'}.svg`

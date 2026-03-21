@@ -8,6 +8,7 @@ import { BusinessProfile } from '@/app/lib/firebase/services/business'
 import { Category, getCategories } from '@/app/lib/firebase/services/categories'
 import { Product, getProducts } from '@/app/lib/firebase/services/products'
 import { Loader2, Search, Utensils, Info, Clock } from 'lucide-react'
+import { recordScan } from '@/app/lib/firebase/services/analytics'
 
 export default function PublicMenuPage() {
     const params = useParams()
@@ -80,6 +81,13 @@ export default function PublicMenuPage() {
                 const businessData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as BusinessProfile
                 setBusiness(businessData)
                 setIsOpenStatus(checkOpenStatus(businessData.schedule))
+
+                // Registrar el escaneo una sola vez por sesión
+                const sessionKey = `scanned_${businessData.id}`
+                if (!sessionStorage.getItem(sessionKey)) {
+                    sessionStorage.setItem(sessionKey, '1')
+                    recordScan(businessData.id!).catch(() => {/* silencioso */})
+                }
 
                 // 2. Traer categorías y productos en paralelo
                 const [cats, prods] = await Promise.all([

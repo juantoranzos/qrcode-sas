@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Ticket, Plus, Trash2, Copy, Check, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import {
     createInviteCode,
     listInvitations,
@@ -54,14 +55,23 @@ export default function AdminInvitationsPage() {
     }
 
     async function handleDelete(inv: Invitation) {
-        if (!confirm(`¿Eliminar el código ${inv.code}?`)) return
-        await deleteInviteCode(inv.code)
-        await load()
+        toast(`¿Eliminar el código ${inv.code}?`, {
+            action: {
+                label: 'Eliminar',
+                onClick: async () => {
+                    await deleteInviteCode(inv.code)
+                    await load()
+                    toast.success(`Código ${inv.code} eliminado`)
+                },
+            },
+            cancel: { label: 'Cancelar', onClick: () => {} },
+        })
     }
 
     function handleCopy(code: string) {
         navigator.clipboard.writeText(code)
         setCopied(code)
+        toast.success('Código copiado al portapapeles')
         setTimeout(() => setCopied(null), 2000)
     }
 
