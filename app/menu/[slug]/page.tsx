@@ -97,9 +97,10 @@ export default function PublicMenuPage() {
 
                 setCategories(cats)
                 setProducts(prods)
-            } catch (err) {
+            } catch (err: unknown) {
                 console.error("Error cargando el menú", err)
-                setError(true)
+                // Solo mostramos error fatal si no pudimos encontrar el negocio
+                if (!business) setError(true)
             } finally {
                 setLoading(false)
             }
