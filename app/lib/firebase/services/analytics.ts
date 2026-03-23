@@ -1,5 +1,5 @@
 import { db } from '../config';
-import { doc, collection, getDoc, query, where, getDocs, setDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
 
 export interface DailyScanCount {
     date: string; // YYYY-MM-DD
@@ -43,14 +43,10 @@ export async function recordScan(businessId: string): Promise<void> {
 }
 
 /**
- * Returns scan statistics for a business:
- * total all-time, today, this week (last 7 days), and daily breakdown.
+ * Returns scan statistics for a business.
+ * Fetches each day doc by its known ID to avoid needing a composite Firestore index.
  */
 export async function getScanStats(businessId: string): Promise<ScanStats> {
-    const businessDoc = await getDoc(doc(db, 'businesses', businessId));
-    const total = (businessDoc.data()?.totalScans as number) || 0;
-
-    // Build the last-7-days date range
     const today = new Date();
     const dates: string[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -58,28 +54,22 @@ export async function getScanStats(businessId: string): Promise<ScanStats> {
         d.setDate(d.getDate() - i);
         dates.push(toDateString(d));
     }
-    const sevenDaysAgo = dates[0];
 
-    const q = query(
-        collection(db, 'scansByDay'),
-        where('businessId', '==', businessId),
-        where('date', '>=', sevenDaysAgo),
-    );
-    const snapshot = await getDocs(q);
+    // Fetch business doc (for totalScans) + each day doc in parallel — no index needed
+    const [businessSnap, ...daySnaps] = await Promise.all([
+        getDoc(doc(db, 'businesses', businessId)),
+        ...dates.map(date => getDoc(doc(db, 'scansByDay', `${businessId}_${date}`))),
+    ]);
 
-    const dayMap = new Map<string, number>();
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        dayMap.set(data.date as string, data.count as number);
-    });
+    const total = (businessSnap.data()?.totalScans as number) || 0;
 
-    const last7Days: DailyScanCount[] = dates.map(date => ({
+    const last7Days: DailyScanCount[] = dates.map((date, i) => ({
         date,
-        count: dayMap.get(date) || 0,
+        count: (daySnaps[i].data()?.count as number) || 0,
     }));
 
     const todayStr = toDateString();
-    const todayCount = dayMap.get(todayStr) || 0;
+    const todayCount = last7Days.find(d => d.date === todayStr)?.count || 0;
     const thisWeek = last7Days.reduce((sum, d) => sum + d.count, 0);
 
     return { total, today: todayCount, thisWeek, last7Days };
