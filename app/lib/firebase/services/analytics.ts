@@ -1,5 +1,5 @@
 import { db } from '../config';
-import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 export interface DailyScanCount {
     date: string; // YYYY-MM-DD
@@ -21,25 +21,20 @@ function toDateString(date: Date = new Date()): string {
     return `${y}-${m}-${d}`;
 }
 
-/**
- * Records a QR scan for a business.
- * - Increments `totalScans` on the business document.
- * - Increments the daily counter in the `scansByDay` collection.
- *
- * NOTE: Firestore rules must allow unauthenticated writes to `scansByDay`
- * and updates to the `totalScans` field on `businesses`.
- */
 export async function recordScan(businessId: string): Promise<void> {
-    const today = toDateString();
-    const dayDocId = `${businessId}_${today}`;
+    const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        keepalive: true,
+        body: JSON.stringify({ businessId }),
+    });
 
-    const businessRef = doc(db, 'businesses', businessId);
-    const dayRef = doc(db, 'scansByDay', dayDocId);
-
-    await Promise.all([
-        setDoc(businessRef, { totalScans: increment(1) }, { merge: true }),
-        setDoc(dayRef, { businessId, date: today, count: increment(1) }, { merge: true }),
-    ]);
+    if (!response.ok) {
+        throw new Error('No se pudo registrar el escaneo');
+    }
 }
 
 /**
