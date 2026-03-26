@@ -85,8 +85,13 @@ export default function PublicMenuPage() {
                 // Registrar el escaneo una sola vez por sesión
                 const sessionKey = `scanned_${businessData.id}`
                 if (!sessionStorage.getItem(sessionKey)) {
-                    sessionStorage.setItem(sessionKey, '1')
-                    recordScan(businessData.id!).catch(() => {/* silencioso */})
+                    recordScan(businessData.id!)
+                        .then((result) => {
+                            if (result.ok) {
+                                sessionStorage.setItem(sessionKey, '1')
+                            }
+                        })
+                        .catch(() => {/* silencioso */})
                 }
 
                 // 2. Traer categorías y productos en paralelo

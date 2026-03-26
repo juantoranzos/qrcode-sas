@@ -13,6 +13,11 @@ export interface ScanStats {
     last7Days: DailyScanCount[];
 }
 
+interface RecordScanResponse {
+    ok: boolean;
+    counted?: boolean;
+}
+
 function toDateString(date: Date = new Date()): string {
     // Use local date to match the user's timezone
     const y = date.getFullYear();
@@ -21,7 +26,7 @@ function toDateString(date: Date = new Date()): string {
     return `${y}-${m}-${d}`;
 }
 
-export async function recordScan(businessId: string): Promise<void> {
+export async function recordScan(businessId: string): Promise<RecordScanResponse> {
     const response = await fetch('/api/scan', {
         method: 'POST',
         headers: {
@@ -35,6 +40,8 @@ export async function recordScan(businessId: string): Promise<void> {
     if (!response.ok) {
         throw new Error('No se pudo registrar el escaneo');
     }
+
+    return response.json() as Promise<RecordScanResponse>;
 }
 
 /**
