@@ -150,7 +150,7 @@ export default function PublicMenuPage() {
 
             {/* Header del Local (Estilo App) */}
             <div
-                className="px-4 pt-10 pb-6 shadow-md sticky top-0 z-30 rounded-b-[2.5rem]"
+                className="px-4 pt-10 pb-6 shadow-md  top-0 z-30 rounded-b-[2.5rem]"
                 style={{ backgroundColor: business.themeColor || '#dc2626' }}
             >
                 <div className="max-w-md mx-auto relative flex flex-col items-center">
@@ -195,7 +195,7 @@ export default function PublicMenuPage() {
             </div>
 
             {/* Selector de Categorías (Flotante) */}
-            <div className="sticky top-[150px] z-20 -mt-2 mb-4 pt-4 pb-2 bg-gradient-to-b from-[#F5F5F8] to-transparent">
+            <div className=" top-[150px] z-20 -mt-2 mb-4 pt-4 pb-2 bg-gradient-to-b from-[#F5F5F8] to-transparent">
                 <div className="max-w-md mx-auto px-4">
                     <div className="flex overflow-x-auto hide-scrollbar gap-2.5 pb-2 snap-x">
                         <button

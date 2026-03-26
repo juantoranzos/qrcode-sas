@@ -260,7 +260,7 @@ export default function SettingsPage() {
                                         <div className="flex items-center gap-3 sm:w-1/3">
                                             <input
                                                 type="checkbox"
-                                                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                                                className=" "
                                                 {...register(`schedule.${day}.isOpen`)}
                                                 id={`day-${day}`}
                                             />
@@ -273,13 +273,13 @@ export default function SettingsPage() {
                                         <div className={`flex items-center gap-2 pl-7 sm:pl-0 sm:flex-1 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                                             <input
                                                 type="time"
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500 w-[110px]"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-red-500 focus:border-red-500 w-[110px]"
                                                 {...register(`schedule.${day}.openTime`)}
                                             />
                                             <span className="text-gray-500 text-sm">a</span>
                                             <input
                                                 type="time"
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500 w-[110px]"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-red-500 focus:border-red-500 w-[110px]"
                                                 {...register(`schedule.${day}.closeTime`)}
                                             />
                                         </div>
