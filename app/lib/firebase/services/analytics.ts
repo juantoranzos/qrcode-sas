@@ -38,7 +38,16 @@ export async function recordScan(businessId: string): Promise<RecordScanResponse
     });
 
     if (!response.ok) {
-        throw new Error('No se pudo registrar el escaneo');
+        let message = 'No se pudo registrar el escaneo';
+
+        try {
+            const data = await response.json() as { error?: string }
+            if (data.error) message = data.error
+        } catch {
+            // Ignore JSON parsing failures and keep the default message.
+        }
+
+        throw new Error(message);
     }
 
     return response.json() as Promise<RecordScanResponse>;

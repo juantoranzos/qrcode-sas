@@ -91,7 +91,9 @@ export default function PublicMenuPage() {
                                 sessionStorage.setItem(sessionKey, '1')
                             }
                         })
-                        .catch(() => {/* silencioso */})
+                        .catch((error) => {
+                            console.error('Error registrando escaneo:', error)
+                        })
                 }
 
                 // 2. Traer categorías y productos en paralelo
